@@ -1,0 +1,99 @@
+---
+- name: Install prerequisite packages
+  yum:
+    name:
+      - httpd
+      - php
+      - gcc
+      - glibc
+      - glibc-common
+      - gd
+      - gd-devel
+      - make
+      - net-snmp
+    state: present
+
+- name: Create Nagios user
+  user:
+    name: nagios
+    # password: "{{ 'nagios_password' | password_hash('sha512') }}"
+    # create_home: yes
+    # shell: /bin/bash
+
+- name: Download Nagios Core
+  get_url:
+    url: https://github.com/NagiosEnterprises/nagioscore/archive/nagios-4.4.6.tar.gz
+    dest: /tmp/nagios-4.4.6.tar.gz
+
+- name: Download Nagios Plugins
+  get_url:
+    url: https://nagios-plugins.org/download/nagios-plugins-2.3.3.tar.gz
+    dest: /tmp/nagios-plugins-2.3.3.tar.gz
+
+- name: Extract Nagios Core
+  unarchive:
+    src: /tmp/nagios-4.4.6.tar.gz
+    dest: /tmp
+    remote_src: yes
+    # creates: /tmp/nagioscore-nagios-4.4.6
+
+- name: Extract Nagios Plugins
+  unarchive:
+    src: /tmp/nagios-plugins-2.3.3.tar.gz
+    dest: /tmp
+    remote_src: yes
+#     creates: /tmp/nagios-plugins-2.3.3
+
+- name: Ensure nagcmd group exists
+  group:
+    name: nagcmd
+    state: present
+
+
+- name: Compile and install Nagios Core
+  shell: |
+    cd /tmp/nagioscore-nagios-4.4.6
+    ./configure --with-command-group=nagcmd
+    make all
+    make install
+    make install-init
+    make install-config
+    make install-commandmode
+
+- name: Compile and install Nagios Plugins
+  shell: |
+    cd /tmp/nagios-plugins-2.3.3
+    ./configure
+    make
+    make install
+
+- name: Configure Nagios web interface
+  shell: |
+    make install-webconf
+  args:
+    chdir: /tmp/nagioscore-nagios-4.4.6
+
+- name: Enable and start Apache
+  systemd:
+    name: httpd
+    enabled: yes
+    state: started
+
+- name: Enable and start Nagios
+  systemd:
+    name: nagios
+    enabled: yes
+    state: started
+
+# - name: Ensure port 80 is open in the security group
+#   amazon.aws.ec2_security_group:
+#     name: "{{ security_group_name }}"
+#     region: "{{ aws_region }}"
+#     rules:
+#       - proto: tcp
+#         from_port: 80
+#         to_port: 80
+#         cidr_ip: 0.0.0.0/0
+#         description: "HTTP access"
+#     state: present
+

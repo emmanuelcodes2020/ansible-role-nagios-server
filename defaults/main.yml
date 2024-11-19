@@ -1,0 +1,4 @@
+---
+# defaults file for ansible-role-nagios
+security_group_name: "nagios-sg"
+aws_region : "eu-west-2"
